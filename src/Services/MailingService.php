@@ -10,7 +10,9 @@ use Botble\Mailing\Enums\LogStatusEnum;
 use Botble\Mailing\Models\Campaign;
 use Botble\Mailing\Models\Contact;
 use Botble\Mailing\Models\MailingLog;
+use BadMethodCallException;
 use Carbon\Carbon;
+use Error;
 use Illuminate\Mail\Message;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
@@ -118,11 +120,22 @@ class MailingService
     public function sendToLog(Campaign $campaign, MailingLog $log): void
     {
         try {
-            [$subject, $content] = $this->buildEmail($campaign, $log);
+            try {
+                [$subject, $content] = $this->buildEmail($campaign, $log);
 
-            Mail::html($content, function (Message $message) use ($log, $subject): void {
-                $message->to($log->email)->subject($subject);
-            });
+                Mail::html($content, function (Message $message) use ($log, $subject): void {
+                    $message->to($log->email)->subject($subject);
+                });
+            } catch (Error | BadMethodCallException) {
+                // If the low-level template helpers differ in this core version,
+                // fall back to the official EmailHandler sending API.
+                [$templateKey, $variables] = $this->templateData($campaign, $log);
+
+                EmailHandler::setModule(MAILING_MODULE_SCREEN_NAME)
+                    ->setType('plugins')
+                    ->setVariableValues($variables)
+                    ->sendUsingTemplate($templateKey, $log->email);
+            }
 
             $log->forceFill([
                 'status' => LogStatusEnum::SENT,
@@ -144,6 +157,21 @@ class MailingService
      */
     protected function buildEmail(Campaign $campaign, MailingLog $log): array
     {
+        [$templateKey, $variables] = $this->templateData($campaign, $log);
+
+        EmailHandler::setModule(MAILING_MODULE_SCREEN_NAME)
+            ->setType('plugins')
+            ->setVariableValues($variables);
+
+        $rawContent = get_setting_email_template_content('plugins', MAILING_MODULE_SCREEN_NAME, $templateKey);
+
+        $content = EmailHandler::prepareData($rawContent);
+
+        return [(string) $campaign->subject, $content];
+    }
+
+    protected function templateData(Campaign $campaign, MailingLog $log): array
+    {
         $templateKey = match ($campaign->type->getValue()) {
             CampaignTypeEnum::POST_PUBLISHED => 'post-published',
             CampaignTypeEnum::MONTHLY_DIGEST => 'monthly-digest',
@@ -159,20 +187,12 @@ class MailingService
         $trackingPixel = '<img src="' . route('public.mailing.track-open', $log->token)
             . '" width="1" height="1" alt="" style="display: none; max-height: 1px; max-width: 1px;" />';
 
-        EmailHandler::setModule(MAILING_MODULE_SCREEN_NAME)
-            ->setType('plugins')
-            ->setVariableValues([
-                'mailing_subject' => (string) $campaign->subject,
-                'mailing_content' => (string) $campaign->content,
-                'unsubscribe_url' => $unsubscribeUrl,
-                'tracking_pixel' => $trackingPixel,
-            ]);
-
-        $rawContent = get_setting_email_template_content('plugins', MAILING_MODULE_SCREEN_NAME, $templateKey);
-
-        $content = EmailHandler::prepareData($rawContent);
-
-        return [(string) $campaign->subject, $content];
+        return [$templateKey, [
+            'mailing_subject' => (string) $campaign->subject,
+            'mailing_content' => (string) $campaign->content,
+            'unsubscribe_url' => $unsubscribeUrl,
+            'tracking_pixel' => $trackingPixel,
+        ]];
     }
 
     protected function completeCampaign(Campaign $campaign): void
