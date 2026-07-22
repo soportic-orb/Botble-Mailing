@@ -1,0 +1,11 @@
+{
+    "name": "soportic/mailing",
+    "description": "Mass mailing plugin for Botble CMS.",
+    "type": "botble-plugin",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Botble\\Mailing\\": "src/"
+        }
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "id": "soportic/mailing",
+    "name": "Mailing",
+    "namespace": "Botble\\Mailing\\",
+    "provider": "Botble\\Mailing\\Providers\\MailingServiceProvider",
+    "author": "Soportic",
+    "url": "https://github.com/soportic-orb/botble-mailing",
+    "version": "1.0.0",
+    "description": "Mass mailing system: send emails to subscribed contacts automatically when a post is published, monthly digests and manual campaigns, with throttling rules, per-campaign statistics and OTA updates from GitHub.",
+    "minimum_core_version": "7.0.0"
+}
