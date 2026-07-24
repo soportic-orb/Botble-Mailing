@@ -2,11 +2,15 @@
 
 namespace Botble\Mailing\Forms;
 
+use Botble\Base\Forms\FieldOptions\HtmlFieldOption;
 use Botble\Base\Forms\FieldOptions\NumberFieldOption;
 use Botble\Base\Forms\FieldOptions\OnOffFieldOption;
+use Botble\Base\Forms\FieldOptions\SelectFieldOption;
 use Botble\Base\Forms\FieldOptions\TextFieldOption;
+use Botble\Base\Forms\Fields\HtmlField;
 use Botble\Base\Forms\Fields\NumberField;
 use Botble\Base\Forms\Fields\OnOffField;
+use Botble\Base\Forms\Fields\SelectField;
 use Botble\Base\Forms\Fields\TextField;
 use Botble\Mailing\Http\Requests\MailingSettingRequest;
 use Botble\Setting\Forms\SettingForm;
@@ -76,6 +80,122 @@ class MailingSettingForm extends SettingForm
                     ->defaultValue((int) setting('mailing_batch_interval', 5))
                     ->addAttribute('min', 0)
                     ->addAttribute('max', 1440)
+            )
+            ->add(
+                'mailing_mail_driver',
+                SelectField::class,
+                SelectFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.driver'))
+                    ->helperText(trans('plugins/mailing::mailing.mail_driver.driver_helper'))
+                    ->choices([
+                        'default' => trans('plugins/mailing::mailing.mail_driver.drivers.default'),
+                        'smtp' => trans('plugins/mailing::mailing.mail_driver.drivers.smtp'),
+                        'microsoft' => trans('plugins/mailing::mailing.mail_driver.drivers.microsoft'),
+                    ])
+                    ->defaultValue((string) setting('mailing_mail_driver', 'default'))
+            )
+            ->addOpenCollapsible('mailing_mail_driver', 'smtp')
+            ->add(
+                'mailing_smtp_host',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_host'))
+                    ->defaultValue((string) setting('mailing_smtp_host', ''))
+                    ->placeholder('smtp.example.com')
+            )
+            ->add(
+                'mailing_smtp_port',
+                NumberField::class,
+                NumberFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_port'))
+                    ->defaultValue((int) setting('mailing_smtp_port', 587))
+                    ->addAttribute('min', 1)
+                    ->addAttribute('max', 65535)
+            )
+            ->add(
+                'mailing_smtp_username',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_username'))
+                    ->defaultValue((string) setting('mailing_smtp_username', ''))
+            )
+            ->add(
+                'mailing_smtp_password',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_password'))
+                    ->defaultValue((string) setting('mailing_smtp_password', ''))
+                    ->addAttribute('type', 'password')
+                    ->addAttribute('autocomplete', 'new-password')
+            )
+            ->add(
+                'mailing_smtp_encryption',
+                SelectField::class,
+                SelectFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_encryption'))
+                    ->choices([
+                        'tls' => 'TLS / STARTTLS',
+                        'ssl' => 'SSL',
+                        'none' => trans('plugins/mailing::mailing.mail_driver.smtp_encryption_none'),
+                    ])
+                    ->defaultValue((string) setting('mailing_smtp_encryption', 'tls'))
+            )
+            ->add(
+                'mailing_smtp_from_email',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_from_email'))
+                    ->helperText(trans('plugins/mailing::mailing.mail_driver.smtp_from_email_helper'))
+                    ->defaultValue((string) setting('mailing_smtp_from_email', ''))
+                    ->addAttribute('type', 'email')
+            )
+            ->add(
+                'mailing_smtp_from_name',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.smtp_from_name'))
+                    ->defaultValue((string) setting('mailing_smtp_from_name', ''))
+            )
+            ->addCloseCollapsible('mailing_mail_driver', 'smtp')
+            ->addOpenCollapsible('mailing_mail_driver', 'microsoft')
+            ->add(
+                'mailing_ms_tenant_id',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.ms_tenant'))
+                    ->helperText(trans('plugins/mailing::mailing.mail_driver.ms_tenant_helper'))
+                    ->defaultValue((string) setting('mailing_ms_tenant_id', ''))
+                    ->placeholder('common')
+            )
+            ->add(
+                'mailing_ms_client_id',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.ms_client_id'))
+                    ->defaultValue((string) setting('mailing_ms_client_id', ''))
+            )
+            ->add(
+                'mailing_ms_client_secret',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(trans('plugins/mailing::mailing.mail_driver.ms_client_secret'))
+                    ->helperText(trans('plugins/mailing::mailing.mail_driver.ms_client_secret_helper'))
+                    ->defaultValue((string) setting('mailing_ms_client_secret', ''))
+                    ->addAttribute('type', 'password')
+                    ->addAttribute('autocomplete', 'new-password')
+            )
+            ->add(
+                'mailing_ms_connect_status',
+                HtmlField::class,
+                HtmlFieldOption::make()
+                    ->content(view('plugins/mailing::partials.microsoft-connect')->render())
+            )
+            ->addCloseCollapsible('mailing_mail_driver', 'microsoft')
+            ->add(
+                'mailing_test_email',
+                HtmlField::class,
+                HtmlFieldOption::make()
+                    ->content(view('plugins/mailing::partials.test-email')->render())
             )
             ->add(
                 'mailing_github_repository',

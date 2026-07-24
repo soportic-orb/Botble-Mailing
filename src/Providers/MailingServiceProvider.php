@@ -8,6 +8,8 @@ use Botble\Base\Traits\LoadAndPublishDataTrait;
 use Botble\Mailing\Commands\MonthlyDigestCommand;
 use Botble\Mailing\Commands\ProcessMailingCommand;
 use Botble\Mailing\Services\MailingService;
+use Botble\Mailing\Services\MailSenderFactory;
+use Botble\Mailing\Services\MicrosoftOAuthService;
 use Botble\Mailing\Services\UpdateService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
@@ -20,6 +22,8 @@ class MailingServiceProvider extends ServiceProvider
     {
         $this->app->singleton(MailingService::class);
         $this->app->singleton(UpdateService::class);
+        $this->app->singleton(MicrosoftOAuthService::class);
+        $this->app->singleton(MailSenderFactory::class);
     }
 
     public function boot(): void

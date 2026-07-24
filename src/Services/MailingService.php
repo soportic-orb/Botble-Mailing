@@ -3,24 +3,30 @@
 namespace Botble\Mailing\Services;
 
 use Botble\Base\Facades\EmailHandler;
+use Botble\Mailing\Contracts\MailSender;
 use Botble\Mailing\Enums\CampaignStatusEnum;
 use Botble\Mailing\Enums\CampaignTypeEnum;
 use Botble\Mailing\Enums\ContactStatusEnum;
 use Botble\Mailing\Enums\LogStatusEnum;
 use Botble\Mailing\Models\Campaign;
 use Botble\Mailing\Models\Contact;
+use Botble\Mailing\Exceptions\MailingConfigurationException;
 use Botble\Mailing\Models\MailingLog;
+use Botble\Mailing\Services\MailSenders\DefaultMailSender;
 use BadMethodCallException;
 use Carbon\Carbon;
 use Error;
-use Illuminate\Mail\Message;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
 class MailingService
 {
+    public function __construct(protected MailSenderFactory $senderFactory)
+    {
+    }
+
     /**
      * Queue the campaign for sending: create one log per subscribed contact
      * and mark the campaign as "sending" so the scheduler processes it in
@@ -86,6 +92,16 @@ class MailingService
             return;
         }
 
+        try {
+            $sender = $this->senderFactory->make();
+        } catch (MailingConfigurationException $exception) {
+            // Misconfigured transport: pause the batch (logs stay pending) and
+            // retry on the next scheduler tick once the admin fixes the settings.
+            Log::error(sprintf('[Mailing] Campaign #%d paused: %s', $campaign->getKey(), $exception->getMessage()));
+
+            return;
+        }
+
         $logs = MailingLog::query()
             ->where('campaign_id', $campaign->getKey())
             ->where('status', LogStatusEnum::PENDING)
@@ -102,7 +118,13 @@ class MailingService
         $campaign->forceFill(['last_batch_at' => Carbon::now()])->save();
 
         foreach ($logs as $log) {
-            $this->sendToLog($campaign, $log);
+            try {
+                $this->sendToLog($campaign, $log, $sender);
+            } catch (MailingConfigurationException $exception) {
+                Log::error(sprintf('[Mailing] Campaign #%d batch aborted: %s', $campaign->getKey(), $exception->getMessage()));
+
+                break;
+            }
         }
 
         $this->refreshCounters($campaign);
@@ -117,18 +139,24 @@ class MailingService
         }
     }
 
-    public function sendToLog(Campaign $campaign, MailingLog $log): void
+    public function sendToLog(Campaign $campaign, MailingLog $log, ?MailSender $sender = null): void
     {
+        $sender ??= $this->senderFactory->make();
+
         try {
             try {
                 [$subject, $content] = $this->buildEmail($campaign, $log);
 
-                Mail::html($content, function (Message $message) use ($log, $subject): void {
-                    $message->to($log->email)->subject($subject);
-                });
-            } catch (Error | BadMethodCallException) {
+                $sender->send($log->email, $subject, $content);
+            } catch (Error | BadMethodCallException $exception) {
                 // If the low-level template helpers differ in this core version,
-                // fall back to the official EmailHandler sending API.
+                // fall back to the official EmailHandler sending API. Only valid
+                // for the default driver: EmailHandler sends through the global
+                // mailer and would silently bypass a custom transport.
+                if (! $sender instanceof DefaultMailSender) {
+                    throw $exception;
+                }
+
                 [$templateKey, $variables] = $this->templateData($campaign, $log);
 
                 EmailHandler::setModule(MAILING_MODULE_SCREEN_NAME)
@@ -142,6 +170,10 @@ class MailingService
                 'sent_at' => Carbon::now(),
                 'error' => null,
             ])->save();
+        } catch (MailingConfigurationException $exception) {
+            // Transport became unusable mid-batch (e.g. revoked OAuth consent):
+            // keep the log pending and let the caller abort the batch.
+            throw $exception;
         } catch (Throwable $exception) {
             $log->forceFill([
                 'status' => LogStatusEnum::FAILED,

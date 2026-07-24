@@ -71,6 +71,26 @@ return [
         'parent_flag' => 'mailing.settings',
     ],
     [
+        'name' => 'Send test email',
+        'flag' => 'mailing.settings.test-email',
+        'parent_flag' => 'mailing.settings',
+    ],
+    [
+        'name' => 'Microsoft connect',
+        'flag' => 'mailing.settings.microsoft.connect',
+        'parent_flag' => 'mailing.settings',
+    ],
+    [
+        'name' => 'Microsoft callback',
+        'flag' => 'mailing.settings.microsoft.callback',
+        'parent_flag' => 'mailing.settings',
+    ],
+    [
+        'name' => 'Microsoft disconnect',
+        'flag' => 'mailing.settings.microsoft.disconnect',
+        'parent_flag' => 'mailing.settings',
+    ],
+    [
         'name' => 'Update (OTA)',
         'flag' => 'mailing.update',
         'parent_flag' => 'mailing.index',
